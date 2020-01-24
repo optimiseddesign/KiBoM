@@ -139,16 +139,9 @@ class Component():
         return self.element.get("libsource", "lib")
 
     def getDescription(self):
-        try:
-            return self.element.get("libsource", "description")
-        except:
-            # Compatibility with old KiCad versions (4.x)
-            ret = self.element.get("field", "name", "description")
+        ret = self.element.get("field", "name", "Description")
 
-            if ret == "":
-                ret = self.libpart.getDescription()
-
-            return ret
+        return ret
 
     def setValue(self, value):
         """Set the value of this component"""
