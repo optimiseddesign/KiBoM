@@ -3,7 +3,7 @@ __pycache__/
 *$py.class
 *.pyc
 
-*.kicad_mod
+*.patch
 .idea/
 
 .env
@@ -14,5 +14,14 @@ VENV/
 ENV/
 env.bak/
 venv.bak/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# PIP build
+build/
+dist/
+kibom.egg-info/
 
 .python-version

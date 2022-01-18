@@ -1,54 +1,32 @@
 # travis-ci integration for KiBOM
 
-sudo:
-  - false
+dist: xenial
 
-os:
-  - linux
-
-language:
-  - python
+language: python
 
 python:
-  - "2.7"
-  - "3.3"
-  - "3.4"
-  - "3.5"
-  - "3.6"
-  - "3.7-dev"
-  - "nightly"
+  - 2.7
+  - 3.7
+
+install:
+  - pip install -r test/requirements.txt
+  - pip install wheel
 
 addons:
   apt:
-    packages:
-      - tree
+    update: true
 
-# Test Scripts
-env:
-  # Basic Tests
-  - DIR=tests SCRIPT=sanity.bash
+before_install:
+  - pip install coverage
+  - pip install xlsxwriter
 
-# Exclusions
-matrix:
-  allow_failures:
-    - python: "3.7-dev"
-    - python: "nightly"
-
-# System setup
-install:
-  # Info about OS
-  - uname -a
-
-  # Directory tree to validate kll.git
-  - tree
-
-  # Python Version
-  - python --version
-
-# Run test script(s)
 script:
-  - (cd ${DIR} && ./${SCRIPT})
+  # Check Python code for style-guide 
+  - flake8 .
+  # Run the coverage tests 
+  - bash ./run-tests.sh
+  # Ensure the module can actually build
+  - python setup.py bdist_wheel --universal
 
-# Post test script commands
-after_script:
-  - tree
+after_success:
+  - coveralls

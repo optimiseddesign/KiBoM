@@ -1,11 +1,4 @@
-#
-# KiCad python module for interpreting generic netlists which can be used
-# to generate Bills of materials, etc.
-#
-# No string formatting is used on purpose as the only string formatting that
-# is current compatible with python 2.4+ to 3.0+ is the '%' method, and that
-# is due to be deprecated in 3.0+ soon
-#
+# -*- coding: utf-8 -*-
 
 """
     @package
@@ -17,16 +10,13 @@
 
 from __future__ import print_function
 import sys
+import os.path
 import xml.sax as sax
-import re
-import pdb
 
-from bomlib.component import (Component, ComponentGroup)
-from bomlib.sort import natural_sort
+from .component import Component, ComponentGroup
+from .preferences import BomPref
+from . import debug
 
-from bomlib.preferences import BomPref
-
-#-----</Configure>---------------------------------------------------------------
 
 class xmlElement():
     """xml element which can represent all nodes of the netlist tree.  It can be
@@ -45,81 +35,6 @@ class xmlElement():
 
         """
         return self.name + "[" + self.chars + "]" + " attr_count:" + str(len(self.attributes))
-
-    def formatXML(self, nestLevel=0, amChild=False):
-        """Return this element formatted as XML
-
-        Keywords:
-        nestLevel -- increases by one for each level of nesting.
-        amChild -- If set to True, the start of document is not returned.
-
-        """
-        s = ""
-
-        indent = ""
-        for i in range(nestLevel):
-            indent += "    "
-
-        if not amChild:
-            s = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-
-        s += indent + "<" + self.name
-        for a in self.attributes:
-            s += " " + a + "=\"" + self.attributes[a] + "\""
-
-        if (len(self.chars) == 0) and (len(self.children) == 0):
-            s += "/>"
-        else:
-            s += ">" + self.chars
-
-        for c in self.children:
-            s += "\n"
-            s += c.formatXML(nestLevel+1, True)
-
-        if (len(self.children) > 0):
-            s += "\n" + indent
-
-        if (len(self.children) > 0) or (len(self.chars) > 0):
-            s += "</" + self.name + ">"
-
-        return s
-
-    def formatHTML(self, amChild=False):
-        """Return this element formatted as HTML
-
-        Keywords:
-        amChild -- If set to True, the start of document is not returned
-
-        """
-        s = ""
-
-        if not amChild:
-            s = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-                "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-                <html xmlns="http://www.w3.org/1999/xhtml">
-                <head>
-                <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-                <title></title>
-                </head>
-                <body>
-                <table>
-                """
-
-        s += "<tr><td><b>" + self.name + "</b><br>" + self.chars + "</td><td><ul>"
-        for a in self.attributes:
-            s += "<li>" + a + " = " + self.attributes[a] + "</li>"
-
-        s += "</ul></td></tr>\n"
-
-        for c in self.children:
-            s += c.formatHTML(True)
-
-        if not amChild:
-            s += """</table>
-                </body>
-                </html>"""
-
-        return s
 
     def addAttribute(self, attr, value):
         """Add an attribute to this element"""
@@ -193,6 +108,7 @@ class xmlElement():
 
         return ""
 
+
 class libpart():
     """Class for a library part, aka 'libpart' in the xml netlist file.
     (Components in eeschema are instantiated from library parts.)
@@ -202,10 +118,6 @@ class libpart():
     def __init__(self, xml_element):
         #
         self.element = xml_element
-
-    #def __str__(self):
-        # simply print the xmlElement associated with this part
-        #return str(self.element)
 
     def getLibName(self):
         return self.element.get("libpart", "lib")
@@ -230,7 +142,7 @@ class libpart():
         fields = self.element.getChild('fields')
         if fields:
             for f in fields.getChildren():
-                fieldNames.append( f.get('field','name') )
+                fieldNames.append(f.get('field', 'name'))
         return fieldNames
 
     def getDatasheet(self):
@@ -256,7 +168,7 @@ class libpart():
             children = aliases.getChildren()
             # grab the text out of each child:
             for child in children:
-                ret.append( child.get("alias") )
+                ret.append(child.get("alias"))
             return ret
         return None
 
@@ -286,7 +198,7 @@ class netlist():
         self._curr_element = None
 
         if not prefs:
-            prefs = BomPref() #default values
+            prefs = BomPref()  # Default values
 
         self.prefs = prefs
 
@@ -299,7 +211,7 @@ class netlist():
 
     def addElement(self, name):
         """Add a new KiCad generic element to the list"""
-        if self._curr_element == None:
+        if self._curr_element is None:
             self.tree = xmlElement(name)
             self._curr_element = self.tree
         else:
@@ -341,13 +253,12 @@ class netlist():
                         break
                     else:
                         aliases = p.getAliases()
-                        if aliases and self.aliasMatch( c.getPartName(), aliases ):
+                        if aliases and self.aliasMatch(c.getPartName(), aliases):
                             c.setLibPart(p)
-                            break;
+                            break
 
             if not c.getLibPart():
-                print( 'missing libpart for ref:', c.getRef(), c.getPartName(), c.getLibName() )
-
+                debug.warning('missing libpart for ref:', c.getRef(), c.getPartName(), c.getLibName())
 
     def aliasMatch(self, partName, aliasList):
         for alias in aliasList:
@@ -367,11 +278,15 @@ class netlist():
             return self.design.get("date").encode('ascii', 'ignore')
 
     def getSource(self):
+
+        path = self.design.get("source").replace("\\", "/")
+        path = os.path.basename(path)
+
         """Return the source string for the design"""
         if (sys.version_info[0] >= 3):
-            return self.design.get("source")
+            return path
         else:
-            return self.design.get("source").encode('ascii', 'ignore')
+            return path.encode('ascii', 'ignore')
 
     def getTool(self):
         """Return the tool string which was used to create the netlist tree"""
@@ -384,19 +299,24 @@ class netlist():
         return self.design.getChild("sheet")
 
     def getSheetDate(self):
-        sheet= self.getSheet()
-        if sheet == None: return ""
+        sheet = self.getSheet()
+        if sheet is None:
+            return ""
         return sheet.get("date")
 
     def getVersion(self):
         """Return the verison of the sheet info"""
+
         sheet = self.getSheet()
-        if sheet == None: return ""
+        
+        if sheet is None:
+            return ""
+        
         return sheet.get("rev")
 
     def getInterestingComponents(self):
 
-        #copy out the components
+        # Copy out the components
         ret = [c for c in self.components]
 
         # Sort first by ref as this makes for easier to read BOM's
@@ -412,9 +332,11 @@ class netlist():
         for c in components:
 
             if self.prefs.useRegex:
-                #skip components if they do not meet regex requirements
-                if c.testRegInclude() == False: continue
-                if c.testRegExclude() == True: continue
+                # Skip components if they do not meet regex requirements
+                if not c.testRegInclude():
+                    continue
+                if c.testRegExclude():
+                    continue
 
             found = False
 
@@ -425,28 +347,20 @@ class netlist():
                     break
 
             if not found:
-                g = ComponentGroup(prefs=self.prefs) #pass down the preferences
+                g = ComponentGroup(prefs=self.prefs)  # Pass down the preferences
                 g.addComponent(c)
                 groups.append(g)
 
-        #sort the references within each group
+        # Sort the references within each group
         for g in groups:
             g.sortComponents()
-            g.updateFields(self.prefs.useAlt, self.prefs.altWrap)
+            g.updateFields(self.prefs.useAlt)
 
-        #sort the groups
-        #first priority is the Type of component (e.g. R?, U?, L?)
-        groups = sorted(groups, key=lambda g: [g.components[0].getPrefix(), g.components[0].getValue()])
+        # Sort the groups
+        # First priority is the Type of component (e.g. R?, U?, L?)
+        groups = sorted(groups, key=lambda g: [g.components[0].getPrefix(), g.components[0].getValueSort()])
 
         return groups
-
-    def formatXML(self):
-        """Return the whole netlist formatted in XML"""
-        return self.tree.formatXML()
-
-    def formatHTML(self):
-        """Return the whole netlist formatted in HTML"""
-        return self.tree.formatHTML()
 
     def load(self, fname):
         """Load a KiCad generic netlist
@@ -460,9 +374,8 @@ class netlist():
             self._reader.setContentHandler(_gNetReader(self))
             self._reader.parse(fname)
         except IOError as e:
-            print( __file__, ":", e, file=sys.stderr )
+            debug.error(__file__, ":", e)
             sys.exit(-1)
-
 
 
 class _gNetReader(sax.handler.ContentHandler):

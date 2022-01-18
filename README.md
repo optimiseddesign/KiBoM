@@ -1,8 +1,8 @@
 # KiBoM
 
-[![Travis Status](https://api.travis-ci.org/SchrodingersGat/KiBoM.svg?branch=master)](https://travis-ci.org/SchrodingersGat/KiBoM)
+[![PyPi version](https://pypip.in/v/kibom/badge.png)](https://pypi.org/project/kibom/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  [![Travis Status](https://api.travis-ci.org/SchrodingersGat/KiBoM.svg?branch=master)](https://travis-ci.org/SchrodingersGat/KiBoM)  [![Coverage Status](https://coveralls.io/repos/github/SchrodingersGat/KiBoM/badge.svg?branch=master)](https://coveralls.io/github/SchrodingersGat/KiBoM?branch=master)
 
-Configurable BoM generation tool for KiCad EDA (http://kicad-pcb.org/)
+Configurable BoM generation tool for KiCad EDA (http://kicad.org/)
 
 ## Description
 
@@ -11,6 +11,30 @@ KiBoM is a configurable BOM (Bill of Materials) generation tool for KiCad EDA. W
 KiBoM intelligently groups components based on multiple factors, and can generate BoM files in multiple output formats.
 
 BoM options are user-configurable in a per-project configuration file.
+
+## Installation
+
+KiBoM can be installed via multiple methods:
+
+**A. Download**
+
+Download the KiBoM [package from github](https://github.com/SchrodingersGat/KiBoM/archive/master.zip) and extract the .zip archive to a location on your computer.
+
+**B. Git Clone**
+
+Use git to clone the source code to your computer:
+
+`git clone https://github.com/SchrodingersGat/kibom`
+
+**C. PIP**
+
+KiBom can also be installed through the PIP package manager:
+
+```pip install kibom```
+
+*Note: Take note of which python executable you use when installing kibom - this is the same executable you must use when running the KiBom script from KiCAD (more details below under "Usage")*
+
+Installing under PIP is recommended for advanced users only, as the exact location of the installed module must be known to properly run the script from within KiCad.
 
 ## Usage
 
@@ -50,7 +74,6 @@ optional arguments:
 
 
 ~~~~                        
-
 
 **netlist** The netlist must be provided to the script. When running from KiCad use "%I"
 
@@ -126,6 +149,23 @@ The following default fields are extracted and can be added to the output BoM fi
 
 If any components have custom fields added, these are available to the output BoM file.
 
+**Joining Fields**
+
+The user may wish to have separate fields in the output BOM file. For example, multiple component parameters such as [Voltage / Current / Tolerance] could be joined into the *Value* field in the generated BOM file.
+
+Field joining is configured in the `bom.ini` file. Under the `[JOIN]` section in the file, multiple join entries can be specified by the user to be joined. Each line is a separate entry, which contains two or more tab-separated field names.
+
+The first name specifies the primary field which be displayed in the output file. The following names specifiy fields which will be joined into the primary field.
+
+Example:
+
+```
+[JOIN]
+Value    Voltage  Current  Tolerance
+```
+
+This entry will append the `voltage`, `current` and `tolerance` values into the `value` field.
+
 ### Multiple PCB Configurations
 
 KiBoM allows for arbitrary PCB configurations, which means that the user can specify that individual components will be included or excluded from the BoM in certain circumstances.
@@ -146,6 +186,10 @@ To specify a part as DNF (do not fit), the *fit_field* field can be set to one o
 * "nostuff"
 * "noload"
 * "do not load"
+
+**DNC Parts**
+
+Parts can be marked as *do not change* or *fixed* by specifying the `dnc` attribute in the *fit_field* field.
 
 **Note:**
 
@@ -205,19 +249,45 @@ Multiple BoM output formats are supported:
 
 Output file format selection is set by the output filename. e.g. "bom.html" will be written to a HTML file, "bom.csv" will be written to a CSV file.
 
+### Digi-Key Linking
+
+If you have a field containing the Digi-Key part number you can make its column to contain links to the Digi-Key web page for this component. (*Note: Digi-Key links will only be generated for the HTML output format*).
+
+**Instructions**
+
+Specify a column (field) to use as the `digikey_link` field in the configuration file (ie. `bom.ini`). The value for this option is the column you want to convert into a link to the Digi-Key. Note that this field must contian a valid Digi-Key part number in each row. 
+
+For example:
+
+`digikey_link = digikeypn`
+
+This will render entries in the column *digikeypn* as hyperlinks to the component webpage on the Digi-Key website.
+
+**Limitations**
+
+Note that Digi-Key URL rendering will only be rendered for HTML file outputs.
+
 ### Configuration File
 BoM generation options can be configured (on a per-project basis) by editing the *bom.ini* file in the PCB project directory. This file is generated the first time that the KiBoM script is run, and allows configuration of the following options.
 * `ignore_dnf` : Component groups designated as 'DNF' (do not fit) will be excluded from the BoM output
+* `use_alt` : If this option is set, grouped references will be printed in the alternate compressed style eg: R1-R7,R18
 * `number_rows` : Add row numbers to the BoM output
 * `group_connectors` : If this option is set, connector comparison based on the 'Value' field is ignored. This allows multiple connectors which are named for their function (e.g. "Power", "ICP" etc) can be grouped together.
 * `test_regex` : If this option is set, each component group row is test against a list of (user configurable) regular expressions. If any matches are found, that row is excluded from the output BoM file.
 * `merge_blank_field` : If this option is set, blank fields are able to be merged with non-blank fields (and do not count as a 'conflict')
+* `ref_separator` : This is the character used to separate reference designators in the output, when grouped. Defaults to " ".
 * `fit_field` : This is the name of the part field used to determine if the component is fitted, or not.
+* `complex_variant` : This enable a more complex processing of variant fields using the `VARIANT:FIELD` format for the name of symbol properties
 * `output_file_name` : A string that allows arbitrary specification of the output file name with field replacements. Fields available:
     - `%O` : The base output file name (pulled from kicad, or specified on command line when calling script).
     - `%v` : version number.
     - `%V` : variant name, note that this will be ammended according to `variant_file_name_format`.
 * `variant_file_name_format` : A string that defines the variant file format. This is a unique field as the variant is not always used/specified.
+* `make_backup` : If this option is set, a backup of the bom created before generating the new one. The option is a string that allows arbitrary specification of the filename. See `output_file_name` for available fields.
+* `number_boards` : Specifies the number of boards to produce, if none is specified on CLI with `-n`.
+* `board_variant` : Specifies the name of the PCB variant, if none is specified on CLI with `-r`.
+* `hide_headers` : If this option is set, the table/column headers and legends are suppressed in the output file.
+* `hide_pcb_info` : If this option is set, PCB information (version, component count, etc) are suppressed in the output file.
 * `IGNORE_COLUMNS` : A list of columns can be marked as 'ignore', and will not be output to the BoM file. By default, the *Part_Lib* and *Footprint_Lib* columns are ignored.
 * `GROUP_FIELDS` : A list of component fields used to group components together.
 * `COMPONENT_ALIASES` : A list of space-separated values which allows multiple schematic symbol visualisations to be consolidated.
@@ -233,8 +303,6 @@ Example configuration file (.ini format) *default values shown*
 ignore_dnf = 1
 ; If 'use_alt' option is set to 1, grouped references will be printed in the alternate compressed style eg: R1-R7,R18
 use_alt = 0
-; If 'alt_wrap' option is set to and integer N, the references field will wrap after N entries are printed
-alt_wrap = 0
 ; If 'number_rows' option is set to 1, each row in the BoM will be prepended with an incrementing row number
 number_rows = 1
 ; If 'group_connectors' option is set to 1, connectors with the same footprints will be grouped together, independent of the name of the connector
@@ -254,13 +322,15 @@ make_backup = %O.tmp
 ; Default number of boards to produce if none given on CLI with -n
 number_boards = 1
 ; Default PCB variant if none given on CLI with -r
-board_variant = set(['2'])
+board_variant = "default"
+; Complex variant field processing (disabled by default)
+complex_variant = 0
 ; When set to 1, suppresses table/column headers and legends in the output file.
 ; May be useful for testing purposes.
-hideHeaders = 0
+hide_headers = 0
 ; When set to 1, PCB information (version, component count, etc) is not shown in the output file.
 ; Useful for saving space in the HTML output and for ensuring CSV output is machine-parseable.
-hidePcbInfo = 0
+hide_pcb_info = 0
 
 [IGNORE_COLUMNS]
 ; Any column heading that appears here will be excluded from the Generated BoM
@@ -352,17 +422,6 @@ C3 and C5 have the same value and footprint
 **C4**
 C4 has a different footprint to C3 and C5, and thus is grouped separately
 
-A HTML BoM file is generated as follows:
-
-![alt tag](example/bom.png?raw=True "BoM")
-
-To add the BoM script, the Command Line options should be configured as follows:
-* path-to-python-script (KiBOM_CLI.py)
-* netlist-file "%I"
-* output_path "%O_bom.html" (replace file extension for different output file formats)
-
-Hit the "Generate" button, and the output window should show that the BoM generation was successful.
-
 ### HTML Output
 The output HTML file is generated as follows:
 
@@ -418,6 +477,7 @@ An XLSX file output can be generated simply by changing the file extension
 
 With thanks to the following contributors:
 
+* https://github.com/set-soft
 * https://github.com/bootchk
 * https://github.com/diegoherranz
 * https://github.com/kylemanna
@@ -430,3 +490,4 @@ With thanks to the following contributors:
 * https://github.com/Ximi1970
 * https://github.com/AngusP
 * https://github.com/trentks
+* https://github.com/set-soft
