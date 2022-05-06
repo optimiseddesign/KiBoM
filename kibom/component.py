@@ -623,9 +623,8 @@ class ComponentGroup():
             self.fields[ColumnList.COL_REFERENCE] = self.getRefs()
 
         q = self.getCount()
-        self.fields[ColumnList.COL_GRP_QUANTITY] = "{n}{dnf}{dnc}".format(
+        self.fields[ColumnList.COL_GRP_QUANTITY] = "{n}{dnc}".format(
             n=q,
-            dnf=" (DNF)" if not self.isFitted() else "",
             dnc=" (DNC)" if self.isFixed() else "")
 
         self.fields[ColumnList.COL_GRP_BUILD_QUANTITY] = str(q * self.prefs.boards) if self.isFitted() else "0"
